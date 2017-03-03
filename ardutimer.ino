@@ -1,7 +1,6 @@
 #include <LiquidCrystal.h>
 #include <Time.h>
 #include <TimeLib.h>
-#include <SimpleTimer.h>
 
 
 
@@ -14,7 +13,11 @@ LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 #define select 4
 #define none 5
 
-void printInitTime(byte *initTime) {
+int lastButton = none;
+
+
+
+void printInitTime(int *initTime) {
   lcd.setCursor(0, 1);
   lcd.print(initTime[0]);
   lcd.print(initTime[1]);
@@ -23,86 +26,116 @@ void printInitTime(byte *initTime) {
   lcd.print(initTime[3]);
 }
 
-void checkCurr(byte *curr, byte *initTime){
-  switch (curr){
+int checkCurr(int curr, int *initTime) {
+
+  switch (curr) {
+    case -1:
+      curr = 3;
+      break;
     case 0:
-      if(initTime[curr] == 3){
+      if (initTime[curr] == 3) {
         initTime[curr] = 0;
-      }else if(initTime[curr] == 255){
+      } else if (initTime[curr] == -1) {
         initTime[curr] = 2;
+      }
+
+      if(initTime[curr] == 2 && initTime[1] > 3){
+        initTime[1] = 3;
       }
       break;
     case 1:
-      if(initTime[0] == 2){
-        if(initTime[curr] == 5){
+      if (initTime[0] == 2) {
+        if (initTime[curr] > 3) {
           initTime[curr] = 0;
-        }else if(initTime[curr] == 255){
-          initTime[curr] = 4;
+        } else if (initTime[curr] == -1) {
+          initTime[curr] = 3;
         }
-      }else{
-        if(initTime[curr] == 10){
+      } else {
+        if (initTime[curr] == 10) {
           initTime[curr] = 0;
-        }else if(initTime[curr] = 255){
+        } else if (initTime[curr] == -1) {
           initTime[curr] = 9;
         }
       }
       break;
     case 2:
-      if(initTime[curr] == 7){
+      if (initTime[curr] == 6) {
         initTime[curr] = 0;
-      }else if(initTime[curr] == 255){
-        initTime[curr] = 6;
+      } else if (initTime[curr] == -1) {
+        initTime[curr] = 5;
       }
       break;
     case 3:
-      if(initTime[curr] == 10){
+      if (initTime[curr] == 10) {
         initTime[curr] = 0;
-      }else if(initTime[curr] = 255){
+      } else if (initTime[curr] == -1) {
         initTime[curr] = 9;
-    }
+      }
+      break;
+    case 4:
+      curr = 0;
+      break;
   }
+  return curr;
 }
 
 void initTime() { // Initializing time on startup
   bool timeSet = false;
-  byte initTime[4] = {0, 0, 0, 0};
+  int initTime[4] = {0, 0, 0, 0};
   lcd.print("Enter time:");
   printInitTime(initTime);
   lcd.blink();
-  byte curr = 0;
+  int curr = 0;
   lcd.setCursor(curr, 1);
+
   while (!timeSet) {
     bool change = true;
-    switch (readLCDButton()) {
-      case up:
-        initTime[curr]++;
-        break;
+    int currentButton = readLCDButton();
 
-      case down:
-        initTime[curr]--;
-        break;
+    if (lastButton != currentButton) {
 
-      case left:
-        curr--;
-        break;
+      switch (currentButton) {
+        case up:
+          initTime[curr]++;
+          Serial.print("\n UP was pressed ");
+          Serial.print(curr);
+          break;
 
-      case right:
-        curr++;
-        break;
+        case down:
+          initTime[curr]--;
+          Serial.print("\n DOWN was pressed ");
+          Serial.print(curr);
+          break;
 
-      case select:
-        timeSet = true;
-        break;
+        case left:
+          curr--;
+          Serial.print("\n LEFT was pressed ");
+          Serial.print(curr);
+          break;
 
-      case none:
-        change = false;
-        break;
-    }
+        case right:
+          curr++;
+          Serial.print("\n RIGHT was pressed ");
+          Serial.print(curr);
+          break;
 
-    if(change){
-      checkOverflow(curr, initTime);
+        case select:
+          timeSet = true;
+          Serial.print("\n SELECT was pressed ");
+          break;
+
+        case none:
+          change = false;
+          break;
+      }
+      lastButton = currentButton;
+
+      curr = checkCurr(curr, initTime);
       printInitTime(initTime);
+      lcd.setCursor(((curr < 2) ? curr : curr + 1), 1);
+      
     }
+
   }
   setTime((initTime[0] * 10) + initTime[1], (initTime[2] * 10) + initTime[3], 0, 1, 1, 2017);
 }
@@ -119,20 +152,27 @@ void clearLine(byte line) {
   }
 }
 
-byte readLCDButton() { // Reads LCD buttons, varies slightly product to product
+int readLCDButton() { // Reads LCD buttons, varies slightly product to product
+  delay(5);
   int aButton = analogRead(0);
 
   if (aButton > 1000) { // Actual value of none was 1023, 1000 to be safe
+    //Serial.print(none);
     return none;
   } else if (aButton < 50) { // Actual value was 0 on my machine
+    //Serial.print(right);
     return right;
   } else if (aButton < 150) { // Actual value - 99
+    //Serial.print(up);
     return up;
   } else if (aButton < 300) { // Actual value - 257
+    //Serial.print(down);
     return down;
   } else if (aButton < 500) { // Actual value - 410
+    //Serial.print(left);
     return left;
-  } else {
+  } else if (aButton < 700) { // Actual value - 610
+    //Serial.print(select);
     return select;
   }
 }
@@ -140,11 +180,12 @@ byte readLCDButton() { // Reads LCD buttons, varies slightly product to product
 void setup() {
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
+  Serial.begin(9600);
   initTime();
 
 }
 
 void loop() {
   lcd.setCursor(0, 1);
-  
+
 }
