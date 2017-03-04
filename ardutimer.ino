@@ -15,7 +15,17 @@ LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
 int lastButton = none;
 
+int secondsLeft = 0;
 
+int minutesLeft = 0;
+
+unsigned long lastUpdate = 0;
+
+int mode = 0; // 0 - Idle, 1 - Ticking down, 2 - Ringing
+
+int pos = 0;
+
+int currentButton = none;
 
 void printInitTime(int *initTime) {
   lcd.setCursor(0, 1);
@@ -90,42 +100,32 @@ void initTime() { // Initializing time on startup
 
   while (!timeSet) {
     bool change = true;
-    int currentButton = readLCDButton();
+    currentButton = readLCDButton();
 
     if (lastButton != currentButton) {
 
       switch (currentButton) {
         case up:
           initTime[curr]++;
-          Serial.print("\n UP was pressed ");
-          Serial.print(curr);
           break;
 
         case down:
           initTime[curr]--;
-          Serial.print("\n DOWN was pressed ");
-          Serial.print(curr);
           break;
 
         case left:
           curr--;
-          Serial.print("\n LEFT was pressed ");
-          Serial.print(curr);
           break;
 
         case right:
           curr++;
-          Serial.print("\n RIGHT was pressed ");
-          Serial.print(curr);
           break;
 
         case select:
           timeSet = true;
-          Serial.print("\n SELECT was pressed ");
           break;
 
         case none:
-          change = false;
           break;
       }
       lastButton = currentButton;
@@ -140,11 +140,6 @@ void initTime() { // Initializing time on startup
   setTime((initTime[0] * 10) + initTime[1], (initTime[2] * 10) + initTime[3], 0, 1, 1, 2017);
 }
 
-void updateDisplay() {
-  clearLine(0);
-  clearLine(1);
-}
-
 void clearLine(byte line) {
   lcd.setCursor(0, line);
   for (int i = 0; i < 16; i++) {
@@ -152,28 +147,57 @@ void clearLine(byte line) {
   }
 }
 
+void updateDisplay() {
+  clearLine(0);
+  clearLine(1);
+  lcd.setCursor(0, 0);
+  lcd.print(hour());
+  lcd.print(":");
+  if(minute() < 10){
+    lcd.print("0");
+  }
+  lcd.print(minute());
+  lcd.print(":");
+  if(second() < 10){
+    lcd.print("0");
+  }
+  lcd.print(second());
+  lcd.setCursor(0, 1);
+  if(minutesLeft < 10){
+    lcd.print("0");
+  }
+  lcd.print(minutesLeft);
+  lcd.print(":");
+  if(secondsLeft < 10){
+    lcd.print("0");
+  }
+  lcd.print(secondsLeft);
+  lcd.setCursor(((pos < 2) ? pos : pos + 1), 1);
+}
+
 int readLCDButton() { // Reads LCD buttons, varies slightly product to product
   delay(5);
   int aButton = analogRead(0);
 
   if (aButton > 1000) { // Actual value of none was 1023, 1000 to be safe
-    //Serial.print(none);
     return none;
   } else if (aButton < 50) { // Actual value was 0 on my machine
-    //Serial.print(right);
     return right;
   } else if (aButton < 150) { // Actual value - 99
-    //Serial.print(up);
     return up;
   } else if (aButton < 300) { // Actual value - 257
-    //Serial.print(down);
     return down;
   } else if (aButton < 500) { // Actual value - 410
-    //Serial.print(left);
     return left;
   } else if (aButton < 700) { // Actual value - 610
-    //Serial.print(select);
     return select;
+  }
+}
+
+void checkOverflow(){
+  if(secondsLeft == -1){
+    secondsLeft = 59;
+    minutesLeft--;
   }
 }
 
@@ -186,6 +210,104 @@ void setup() {
 }
 
 void loop() {
-  lcd.setCursor(0, 1);
+  if(abs(millis() - lastUpdate) > 1000){
+    lastUpdate = millis();
+    if(mode == 1){
+      secondsLeft--;
+      if(minutesLeft == 0 && secondsLeft == 0){
+        mode = 2;
+      }else{
+        checkOverflow();
+      }
+    }
+    updateDisplay();
+  }
+
+  currentButton = readLCDButton();
+  
+  if(currentButton != lastButton){
+    lastButton = currentButton;
+    if(mode == 0){
+      switch(currentButton){
+        case up:
+          switch(pos){
+            case 0:
+              minutesLeft = minutesLeft + 10;
+              if(minutesLeft > 99){
+                minutesLeft = minutesLeft - 100;
+              }
+            break;
+            case 1:
+              minutesLeft++;
+              if(minutesLeft > 99){
+                minutesLeft = minutesLeft - 100;
+              }
+            break;
+            case 2:
+              secondsLeft = secondsLeft + 10;
+              if(secondsLeft > 59){
+                secondsLeft = secondsLeft - 60;
+              }
+              break;
+            case 3:
+              secondsLeft++;
+              if(secondsLeft > 59){
+                secondsLeft = secondsLeft - 60;
+              }
+              break;
+          }
+          break;
+        case right:
+          pos++;
+          if(pos > 3){
+            pos = 0;
+          }
+          break;
+        case left:
+          pos--;
+           if(pos == -1){
+            pos = 3;
+           }
+          break;
+        case down:
+          switch(pos){
+            case 0:
+              minutesLeft = minutesLeft - 10;
+              if(minutesLeft < 0){
+                minutesLeft = minutesLeft + 100;
+              }
+            break;
+            case 1:
+              minutesLeft--;
+              if(minutesLeft < 0){
+                minutesLeft = minutesLeft + 100;
+              }
+            break;
+            case 2:
+              secondsLeft = secondsLeft - 10;
+              if(secondsLeft < 0){
+                secondsLeft = secondsLeft + 100;
+              }
+              break;
+            case 3:
+              secondsLeft--;
+              if(secondsLeft < 0){
+                secondsLeft = secondsLeft + 100;
+              }
+              break;
+          }
+          break;
+        case select:
+            mode = 1;
+          break;
+      }
+    }else{
+      if(currentButton == select){
+        mode = 0;
+      }
+    }
+    updateDisplay();
+  }
+  
 
 }
