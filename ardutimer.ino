@@ -12,6 +12,8 @@ LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 #define down 3
 #define select 4
 #define none 5
+#define buzzPin 6
+
 
 int lastButton = none;
 
@@ -202,6 +204,8 @@ void checkOverflow(){
 }
 
 void setup() {
+  pinMode(buzzPin, OUTPUT);
+  noTone(buzzPin);
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
   Serial.begin(9600);
@@ -216,6 +220,7 @@ void loop() {
       secondsLeft--;
       if(minutesLeft == 0 && secondsLeft == 0){
         mode = 2;
+        tone(buzzPin, 1000, 10000);
       }else{
         checkOverflow();
       }
@@ -298,16 +303,19 @@ void loop() {
           }
           break;
         case select:
+          if(secondsLeft != 0 || minutesLeft != 0){
             mode = 1;
+            lcd.noBlink();
+          }
           break;
       }
     }else{
       if(currentButton == select){
         mode = 0;
+        noTone(buzzPin);
+        lcd.blink();
       }
     }
     updateDisplay();
   }
-  
-
 }
