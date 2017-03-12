@@ -6,16 +6,16 @@
 
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
-#define up 0
-#define right 1
-#define left 2
-#define down 3
-#define select 4
-#define none 5
-#define buzzPin 6
+#define UP 0
+#define RIGHT 1
+#define LEFT 2
+#define DOWN 3
+#define SELECT 4
+#define NONE 5
+#define BUZZPIN 6 // Pin with the piezo speaker, must be PWM
 
 
-int lastButton = none;
+int lastButton = NONE;
 
 int secondsLeft = 0;
 
@@ -23,11 +23,11 @@ int minutesLeft = 0;
 
 unsigned long lastUpdate = 0;
 
-int mode = 0; // 0 - Idle, 1 - Ticking down, 2 - Ringing
+int mode = 0; // 0 - Idle, 1 - Ticking DOWN, 2 - Ringing
 
 int pos = 0;
 
-int currentButton = none;
+int currentButton = NONE;
 
 void printInitTime(int *initTime) {
   lcd.setCursor(0, 1);
@@ -91,7 +91,7 @@ int checkCurr(int curr, int *initTime) {
   return curr;
 }
 
-void initTime() { // Initializing time on startup
+void initTime() { // Initializing time on startUP
   bool timeSet = false;
   int initTime[4] = {0, 0, 0, 0};
   lcd.print("Enter time:");
@@ -107,27 +107,27 @@ void initTime() { // Initializing time on startup
     if (lastButton != currentButton) {
 
       switch (currentButton) {
-        case up:
+        case UP:
           initTime[curr]++;
           break;
 
-        case down:
+        case DOWN:
           initTime[curr]--;
           break;
 
-        case left:
+        case LEFT:
           curr--;
           break;
 
-        case right:
+        case RIGHT:
           curr++;
           break;
 
-        case select:
+        case SELECT:
           timeSet = true;
           break;
 
-        case none:
+        case NONE:
           break;
       }
       lastButton = currentButton;
@@ -181,18 +181,18 @@ int readLCDButton() { // Reads LCD buttons, varies slightly product to product
   delay(5);
   int aButton = analogRead(0);
 
-  if (aButton > 1000) { // Actual value of none was 1023, 1000 to be safe
-    return none;
+  if (aButton > 1000) { // Actual value of NONE was 1023, 1000 to be safe
+    return NONE;
   } else if (aButton < 50) { // Actual value was 0 on my machine
-    return right;
+    return RIGHT;
   } else if (aButton < 150) { // Actual value - 99
-    return up;
+    return UP;
   } else if (aButton < 300) { // Actual value - 257
-    return down;
+    return DOWN;
   } else if (aButton < 500) { // Actual value - 410
-    return left;
+    return LEFT;
   } else if (aButton < 700) { // Actual value - 610
-    return select;
+    return SELECT;
   }
 }
 
@@ -204,11 +204,10 @@ void checkOverflow(){
 }
 
 void setup() {
-  pinMode(buzzPin, OUTPUT);
-  noTone(buzzPin);
+  pinMode(BUZZPIN, OUTPUT);
+  noTone(BUZZPIN);
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
-  Serial.begin(9600);
   initTime();
 
 }
@@ -220,7 +219,7 @@ void loop() {
       secondsLeft--;
       if(minutesLeft == 0 && secondsLeft == 0){
         mode = 2;
-        tone(buzzPin, 1000, 10000);
+        tone(BUZZPIN, 1000, 10000);
       }else{
         checkOverflow();
       }
@@ -234,7 +233,7 @@ void loop() {
     lastButton = currentButton;
     if(mode == 0){
       switch(currentButton){
-        case up:
+        case UP:
           switch(pos){
             case 0:
               minutesLeft = minutesLeft + 10;
@@ -262,19 +261,19 @@ void loop() {
               break;
           }
           break;
-        case right:
+        case RIGHT:
           pos++;
           if(pos > 3){
             pos = 0;
           }
           break;
-        case left:
+        case LEFT:
           pos--;
            if(pos == -1){
             pos = 3;
            }
           break;
-        case down:
+        case DOWN:
           switch(pos){
             case 0:
               minutesLeft = minutesLeft - 10;
@@ -291,18 +290,18 @@ void loop() {
             case 2:
               secondsLeft = secondsLeft - 10;
               if(secondsLeft < 0){
-                secondsLeft = secondsLeft + 100;
+                secondsLeft = secondsLeft + 60;
               }
               break;
             case 3:
               secondsLeft--;
               if(secondsLeft < 0){
-                secondsLeft = secondsLeft + 100;
+                secondsLeft = secondsLeft + 60;
               }
               break;
           }
           break;
-        case select:
+        case SELECT:
           if(secondsLeft != 0 || minutesLeft != 0){
             mode = 1;
             lcd.noBlink();
@@ -310,9 +309,9 @@ void loop() {
           break;
       }
     }else{
-      if(currentButton == select){
+      if(currentButton == SELECT){
         mode = 0;
-        noTone(buzzPin);
+        noTone(BUZZPIN);
         lcd.blink();
       }
     }
